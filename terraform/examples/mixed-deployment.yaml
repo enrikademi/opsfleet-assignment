@@ -1,0 +1,91 @@
+# Example deployment that can run on BOTH x86 and Graviton instances
+# Karpenter will choose the most cost-effective option available
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-mixed
+  namespace: default
+  labels:
+    app: nginx
+    arch: multi
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: nginx
+      arch: multi
+  template:
+    metadata:
+      labels:
+        app: nginx
+        arch: multi
+    spec:
+      # No architecture constraint - Karpenter will choose based on availability and cost
+      # This allows maximum flexibility and cost optimization
+      
+      # Optional: Prefer Spot instances for cost savings
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: karpenter.sh/capacity-type
+                operator: In
+                values:
+                - spot
+          # Optional: Prefer Graviton for better price-performance
+          - weight: 50
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - arm64
+      
+      # Tolerate Spot instance interruptions
+      tolerations:
+      - key: karpenter.sh/disruption
+        operator: Exists
+        effect: NoSchedule
+      
+      containers:
+      - name: nginx
+        # IMPORTANT: Use multi-arch images that support both amd64 and arm64
+        image: nginx:1.27-alpine
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-mixed
+  namespace: default
+spec:
+  selector:
+    app: nginx
+    arch: multi
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+  type: ClusterIP

@@ -13,7 +13,6 @@ resource "helm_release" "karpenter" {
       settings = {
         clusterName     = var.cluster_name
         clusterEndpoint = var.cluster_endpoint
-        interruptionQueue = var.cluster_name
       }
       serviceAccount = {
         annotations = {
@@ -58,8 +57,6 @@ resource "helm_release" "karpenter" {
       }
     })
   ]
-
-  tags = var.tags
 }
 
 # Karpenter NodePool for Graviton (ARM64) + Spot

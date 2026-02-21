@@ -1,6 +1,12 @@
 # Local .terraform directories
 **/.terraform/*
 
+.specstory/**
+
+.specstory/
+
+.cursorindexingignore
+
 # .tfstate files
 *.tfstate
 *.tfstate.*

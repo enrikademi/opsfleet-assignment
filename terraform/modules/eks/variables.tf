@@ -73,7 +73,7 @@ variable "system_node_group_max_size" {
 variable "system_node_group_instance_types" {
   description = "Instance types for the system node group"
   type        = list(string)
-  default     = ["t4g.medium"]
+  default     = ["t3.small"]  # Changed from t4g.medium to avoid Free Tier issues
 }
 
 variable "vpc_cni_addon_version" {

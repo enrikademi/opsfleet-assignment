@@ -1,0 +1,176 @@
+# =============================================================
+# KARPENTER LIVE DEMO — CPU Stress + HPA + Node Auto-Scaling
+# =============================================================
+# This demo:
+#   1. Deploys a CPU-intensive app on ARM64 (Graviton)
+#   2. HPA watches CPU and scales pods up
+#   3. Karpenter detects pending pods and provisions NEW nodes
+#   4. You watch nodes appear in real-time
+#
+# HOW TO RUN:
+#   kubectl apply -f examples/karpenter-stress-demo.yaml
+#
+# WATCH IN REAL-TIME (run in separate terminals):
+#   Terminal 1: watch -n 2 'kubectl get pods -n karpenter-demo -o wide'
+#   Terminal 2: watch -n 2 'kubectl get nodes -L kubernetes.io/arch,karpenter.sh/capacity-type'
+#   Terminal 3: kubectl logs -n kube-system -l app.kubernetes.io/name=karpenter -f
+#   Terminal 4: kubectl get hpa -n karpenter-demo -w
+#
+# TRIGGER SCALING:
+#   kubectl run load-generator --image=busybox -n karpenter-demo -it --rm \
+#     -- /bin/sh -c "while true; do wget -q -O- http://php-apache; done"
+# =============================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: karpenter-demo
+  labels:
+    purpose: karpenter-demo
+
+---
+# -------------------------------------------------------
+# Graviton (ARM64) Stress Deployment
+# This will trigger Karpenter to provision ARM64 nodes
+# -------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stress-graviton
+  namespace: karpenter-demo
+  labels:
+    app: stress-graviton
+    arch: arm64
+    demo: karpenter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stress-graviton
+  template:
+    metadata:
+      labels:
+        app: stress-graviton
+        arch: arm64
+    spec:
+      # Target Graviton (ARM64) nodes via Karpenter
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      tolerations:
+        - key: karpenter.sh/capacity-type
+          operator: Exists
+      containers:
+      - name: stress
+        image: nginx:alpine  # Lightweight multi-arch image
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: 200m       # HPA watches this
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+---
+# -------------------------------------------------------
+# HPA — Scales pods based on CPU usage
+# When CPU > 50%, adds more pods → Karpenter adds nodes
+# -------------------------------------------------------
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: stress-graviton-hpa
+  namespace: karpenter-demo
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: stress-graviton
+  minReplicas: 1
+  maxReplicas: 20       # HPA can create up to 20 pods
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50  # Scale at 50% CPU
+
+---
+# -------------------------------------------------------
+# x86 (AMD64) Stress Deployment
+# Runs alongside Graviton to show BOTH architectures
+# -------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stress-x86
+  namespace: karpenter-demo
+  labels:
+    app: stress-x86
+    arch: amd64
+    demo: karpenter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stress-x86
+  template:
+    metadata:
+      labels:
+        app: stress-x86
+        arch: amd64
+    spec:
+      # Target x86 (AMD64) nodes via Karpenter
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      tolerations:
+        - key: karpenter.sh/capacity-type
+          operator: Exists
+      containers:
+      - name: stress
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: 200m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+---
+# HPA for x86 deployment
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: stress-x86-hpa
+  namespace: karpenter-demo
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: stress-x86
+  minReplicas: 1
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50

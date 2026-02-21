@@ -1,0 +1,223 @@
+# =============================================================
+# MULTI-ARCHITECTURE PROOF DEMO
+# =============================================================
+# The MOST IMPRESSIVE demo — runs pods on BOTH architectures
+# simultaneously and shows the architecture from INSIDE the pod.
+#
+# HOW TO RUN:
+#   kubectl apply -f examples/multiarch-proof.yaml
+#
+# PROOF COMMANDS (run after pods are Running):
+#
+#   # 1. See both deployments side-by-side
+#   kubectl get pods -n multiarch -o wide
+#
+#   # 2. Check architecture from INSIDE ARM64 pod
+#   kubectl exec -n multiarch deployment/app-graviton -- uname -m
+#   # Expected: aarch64  ← This IS Graviton ARM64
+#
+#   # 3. Check architecture from INSIDE x86 pod
+#   kubectl exec -n multiarch deployment/app-x86 -- uname -m
+#   # Expected: x86_64  ← This IS x86 AMD64
+#
+#   # 4. One-liner that shows BOTH architectures at once (very impressive!)
+#   for pod in $(kubectl get pods -n multiarch -o name); do
+#     echo "--- $pod ---"
+#     kubectl exec -n multiarch $pod -- uname -m
+#   done
+#
+#   # 5. Show node labels for proof
+#   kubectl get pods -n multiarch -o wide
+#   kubectl get nodes -L kubernetes.io/arch,karpenter.sh/capacity-type,node.kubernetes.io/instance-type
+# =============================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: multiarch
+
+---
+# -------------------------------------------------------
+# Graviton (ARM64) — Simulating a Flask API backend
+# -------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-graviton
+  namespace: multiarch
+  labels:
+    app: app-graviton
+    arch: arm64
+    role: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: app-graviton
+  template:
+    metadata:
+      labels:
+        app: app-graviton
+        arch: arm64
+        role: api
+    spec:
+      nodeSelector:
+        kubernetes.io/arch: arm64   # ← Force Graviton
+      tolerations:
+        - key: karpenter.sh/capacity-type
+          operator: Exists
+      containers:
+      - name: api
+        image: python:3.12-alpine    # Multi-arch: works on arm64 and amd64
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            python3 -c "
+            import http.server, os, platform, socket
+            class Handler(http.server.SimpleHTTPRequestHandler):
+                def do_GET(self):
+                    self.send_response(200)
+                    self.end_headers()
+                    info = f'''
+            ╔══════════════════════════════════════╗
+            ║     Innovate Inc. — Flask API        ║
+            ╠══════════════════════════════════════╣
+            ║ Architecture : {platform.machine():<20} ║
+            ║ Hostname     : {socket.gethostname():<20} ║
+            ║ Node         : {os.environ.get('NODE_NAME','unknown'):<20} ║
+            ║ Capacity     : {os.environ.get('CAPACITY_TYPE','unknown'):<20} ║
+            ╚══════════════════════════════════════╝
+            '''
+                    self.wfile.write(info.encode())
+                    return
+            http.server.HTTPServer(('0.0.0.0', 8080), Handler).serve_forever()
+            "
+        ports:
+        - containerPort: 8080
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: CAPACITY_TYPE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['karpenter.sh/capacity-type']
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-graviton
+  namespace: multiarch
+spec:
+  selector:
+    app: app-graviton
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: ClusterIP
+
+---
+# -------------------------------------------------------
+# x86 (AMD64) — Simulating a background worker
+# -------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-x86
+  namespace: multiarch
+  labels:
+    app: app-x86
+    arch: amd64
+    role: worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: app-x86
+  template:
+    metadata:
+      labels:
+        app: app-x86
+        arch: amd64
+        role: worker
+    spec:
+      nodeSelector:
+        kubernetes.io/arch: amd64   # ← Force x86
+      tolerations:
+        - key: karpenter.sh/capacity-type
+          operator: Exists
+      containers:
+      - name: worker
+        image: python:3.12-alpine
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            python3 -c "
+            import http.server, os, platform, socket
+            class Handler(http.server.SimpleHTTPRequestHandler):
+                def do_GET(self):
+                    self.send_response(200)
+                    self.end_headers()
+                    info = f'''
+            ╔══════════════════════════════════════╗
+            ║     Innovate Inc. — Worker           ║
+            ╠══════════════════════════════════════╣
+            ║ Architecture : {platform.machine():<20} ║
+            ║ Hostname     : {socket.gethostname():<20} ║
+            ║ Node         : {os.environ.get('NODE_NAME','unknown'):<20} ║
+            ║ Capacity     : {os.environ.get('CAPACITY_TYPE','unknown'):<20} ║
+            ╚══════════════════════════════════════╝
+            '''
+                    self.wfile.write(info.encode())
+                    return
+            http.server.HTTPServer(('0.0.0.0', 8080), Handler).serve_forever()
+            "
+        ports:
+        - containerPort: 8080
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-x86
+  namespace: multiarch
+spec:
+  selector:
+    app: app-x86
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: ClusterIP

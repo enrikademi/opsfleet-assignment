@@ -650,19 +650,3 @@ aws ce get-cost-and-usage \
   --metrics "UnblendedCost" \
   --group-by Type=SERVICE
 ```
-
-Set up AWS Budgets for alerts.
-
-## 👥 Contributing
-
-This is an assessment project, but suggestions are welcome!
-
-## 📄 License
-
-This project is provided as-is for demonstration purposes.
-
----
-
-**Built with ❤️ for Opsfleet DevOps Assessment**
-
-For questions or issues, please reach out to the team.

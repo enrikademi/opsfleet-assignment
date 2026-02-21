@@ -6,6 +6,49 @@
 aws eks update-kubeconfig --region us-east-1 --name opsfleet-dev-eks
 ```
 
+The DEMO.md includes everything you tested and more:
+✅ Covered in DEMO.md:
+Infrastructure Overview (cluster info, Karpenter pods, NodePools, EC2NodeClasses)
+Multi-Architecture Verification (showing both x86 and ARM64 nodes)
+Graviton Deployment (deploying workload to ARM64 nodes)
+x86 Deployment (deploying workload to AMD64 nodes)
+Auto-Scaling Demo (scaling up/down and watching Karpenter)
+Cost Optimization (Spot instances + Graviton savings)
+Troubleshooting Commands (all the debugging commands)
+Talking Points (key highlights for your interview)
+30-Second Elevator Pitch (perfect for opening)
+📋 Key Sections:
+✅
+DEMO 1: Infrastructure Overview ✅DEMO 2: Both Architectures Working ✅ (what you just tested!)DEMO 3: Deploy to Graviton ✅DEMO 4: Deploy to x86 ✅DEMO 5: Auto-Scaling ✅DEMO 6: Cost Optimization ✅DEMO 7: Cleanup ✅
+2️⃣ ALL IAM FIXES ARE IN TERRAFORM CODE ✅
+Looking at main.tf lines 69-176, ALL the IAM permissions we fixed are integrated:
+✅ All Fixed Permissions in Code:
+# 1. Launch Template Management (line 96-99){  Sid    = "AllowLaunchTemplateManagement"  Action = ["ec2:CreateLaunchTemplate", "ec2:DescribeLaunchTemplates", "ec2:DeleteLaunchTemplate"]}# 2. Fleet Creation (line 90-94){  Sid    = "AllowFleetCreation"  Action = ["ec2:CreateFleet", "ec2:CreateTags"]  Resource = ["arn:aws:ec2:*:*:fleet/*", ...]}# 3. RunInstances on Images/Snapshots (line 77-88){  Sid    = "AllowScopedEC2InstanceActions"  Action = ["ec2:RunInstances"]  Resource = [    "arn:aws:ec2:*::image/*",      # ← Added for AMI access    "arn:aws:ec2:*::snapshot/*",   # ← Added for snapshot access    ...  ]}# 4. IAM PassRole with Condition (line 143-152){  Sid      = "AllowPassingInstanceRole"  Action   = "iam:PassRole"  Resource = module.iam.node_role_arn  Condition = {    StringEquals = {      "iam:PassedToService" = "ec2.amazonaws.com"  # ← Security condition    }  }}# 5. Instance Profile Management (line 154-165){  Sid    = "AllowInstanceProfileManagement"  Action = [    "iam:CreateInstanceProfile",    "iam:DeleteInstanceProfile",    "iam:GetInstanceProfile",    "iam:AddRoleToInstanceProfile",    "iam:RemoveRoleFromInstanceProfile",    "iam:TagInstanceProfile"  ]  Resource = "arn:aws:iam::*:instance-profile/*"}
+🎯 Summary:
+✅ What's Been Done:
+All IAM fixes from our debugging session are permanently in the Terraform code
+DEMO.md has complete step-by-step instructions for demonstrating your cluster
+All files are synced to GitHub at: https://github.com/enrikademi/opsfleet-assignment
+Working cluster with both x86 and Graviton nodes running
+🚀 You're Ready for the Interview!
+What You Have:
+✅ Production-ready Terraform code
+✅ Working EKS cluster with Karpenter
+✅ Multi-architecture support (x86 + ARM64)
+✅ Comprehensive documentation (DEMO.md, README.md, ARCHITECTURE.md)
+✅ Example deployments for both architectures
+✅ All IAM permissions correctly configured
+✅ Everything on GitHub
+To Demonstrate:
+Just follow the DEMO.md script! It has everything organized in logical sections with expected outputs.
+💡 Final Tip for Interview:
+When walking through the solution, emphasize:
+"I tested everything end-to-end" (show the running nodes with both architectures)
+"I debugged real IAM permission issues" (shows problem-solving skills)
+"The architecture is modular and production-ready" (show the module structure)
+"I documented everything for the team" (show README, DEMO, ARCHITECTURE docs)
+You're all set! 🎉
+
 ---
 
 ## 📊 **DEMO 1: Show Infrastructure Overview**

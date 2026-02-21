@@ -219,13 +219,3 @@ aws sqs get-queue-attributes \
 6. ✅ Configure CI/CD pipelines
 7. ✅ Implement GitOps (ArgoCD/Flux)
 
-## 🎓 Learning Resources
-
-- [Karpenter Best Practices](https://karpenter.sh/docs/concepts/)
-- [EKS Best Practices Guide](https://aws.github.io/aws-eks-best-practices/)
-- [Graviton Performance](https://github.com/aws/aws-graviton-getting-started)
-- [Spot Best Practices](https://aws.amazon.com/ec2/spot/getting-started/)
-
----
-
-**Need help?** Check the main [README.md](README.md) or reach out to the team!

@@ -1,0 +1,16 @@
+# Cursor IDE files
+.cursorindexingignore
+.specstory/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Terraform state (also in terraform/.gitignore)
+*.tfstate
+*.tfstate.*
+*.tfvars
+
+# Terraform directories
+**/.terraform/*
+.terraform.lock.hcl

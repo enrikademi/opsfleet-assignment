@@ -25,12 +25,12 @@ output "node_instance_profile_arn" {
 
 output "karpenter_irsa_role_arn" {
   description = "ARN of the Karpenter controller IRSA role"
-  value       = aws_iam_role.karpenter_controller.arn
+  value       = length(aws_iam_role.karpenter_controller) > 0 ? aws_iam_role.karpenter_controller[0].arn : ""
 }
 
 output "karpenter_irsa_role_name" {
   description = "Name of the Karpenter controller IRSA role"
-  value       = aws_iam_role.karpenter_controller.name
+  value       = length(aws_iam_role.karpenter_controller) > 0 ? aws_iam_role.karpenter_controller[0].name : ""
 }
 
 output "karpenter_instance_profile_name" {

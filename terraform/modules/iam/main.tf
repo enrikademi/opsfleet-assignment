@@ -77,7 +77,10 @@ resource "aws_iam_instance_profile" "node" {
 }
 
 # Karpenter Controller IAM Role (IRSA)
+# Only create if OIDC provider details are available
 resource "aws_iam_role" "karpenter_controller" {
+  count = var.oidc_provider_arn != "" ? 1 : 0
+  
   name = "${var.cluster_name}-karpenter-controller"
 
   assume_role_policy = jsonencode({
@@ -103,6 +106,8 @@ resource "aws_iam_role" "karpenter_controller" {
 }
 
 resource "aws_iam_policy" "karpenter_controller" {
+  count = var.oidc_provider_arn != "" ? 1 : 0
+  
   name        = "${var.cluster_name}-karpenter-controller"
   description = "IAM policy for Karpenter controller"
 
@@ -284,8 +289,10 @@ resource "aws_iam_policy" "karpenter_controller" {
 }
 
 resource "aws_iam_role_policy_attachment" "karpenter_controller" {
-  policy_arn = aws_iam_policy.karpenter_controller.arn
-  role       = aws_iam_role.karpenter_controller.name
+  count = var.oidc_provider_arn != "" ? 1 : 0
+  
+  policy_arn = aws_iam_policy.karpenter_controller[0].arn
+  role       = aws_iam_role.karpenter_controller[0].name
 }
 
 # Karpenter Node IAM Role (for instances provisioned by Karpenter)
